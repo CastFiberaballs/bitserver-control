@@ -1,5 +1,5 @@
 const express = require('express');
-const { execSync } = require('child_process');
+const { execSync, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const app = express();
@@ -179,7 +179,11 @@ app.listen(PORT, () => {
   console.log(`Open http://localhost:${PORT} in your browser.`);
   // Auto-open browser after a short delay
   setTimeout(() => {
-    const { exec } = require('child_process');
-    exec(`start http://localhost:${PORT}/`);
-  }, 500);
+    exec('start http://localhost:' + PORT + '/', (err) => {
+      if (err && !err.killed) {
+        // fallback: print url
+        console.log('Could not open browser automatically.');
+      }
+    });
+  }, 800);
 });
