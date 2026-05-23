@@ -63,6 +63,7 @@ if %errorlevel% neq 0 (
 
 echo  [LAUNCH] Starting Node server...
 echo.
+start http://localhost:3131
 node server.js
 if %errorlevel% neq 0 (
   echo.

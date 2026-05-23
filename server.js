@@ -176,7 +176,10 @@ app.post('/normal-mode', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`BITSERVER running on http://localhost:${PORT}`);
-  // Auto-open browser
-  const { exec } = require('child_process');
-  exec(`start http://localhost:${PORT}/app.html`);
+  console.log(`Open http://localhost:${PORT} in your browser.`);
+  // Auto-open browser after a short delay
+  setTimeout(() => {
+    const { exec } = require('child_process');
+    exec(`start http://localhost:${PORT}/`);
+  }, 500);
 });
