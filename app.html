@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BITSERVER CONTROL</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --panel: #111111;
+    --border: #1a1a1a;
+    --green: #00ff41;
+    --green-glow: rgba(0, 255, 65, 0.2);
+    --green-dim: #007a1f;
+    --amber: #ffaa00;
+    --amber-glow: rgba(255, 170, 0, 0.2);
+    --amber-dim: #995500;
+    --text: #cccccc;
+    --dim: #555555;
+    --red: #ff3333;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Subtle vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 1001;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 520px;
+    padding: 20px;
+    z-index: 10;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    transition: border-color 0.5s ease, box-shadow 0.5s ease;
+  }
+
+  .panel.server-active {
+    border-color: var(--green-dim);
+    box-shadow: 0 0 30px var(--green-glow), inset 0 0 20px var(--green-glow);
+  }
+
+  .panel.normal-active {
+    border-color: var(--amber-dim);
+    box-shadow: 0 0 30px var(--amber-glow), inset 0 0 20px var(--amber-glow);
+  }
+
+  /* Header bar */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+  }
+
+  .header-title {
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    font-weight: bold;
+  }
+
+  .header-info {
+    font-size: 0.75rem;
+    color: var(--dim);
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  /* Status display */
+  .status-display {
+    text-align: center;
+    padding: 32px 20px;
+    margin-bottom: 28px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .status-label {
+    font-size: 0.8rem;
+    color: var(--dim);
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+
+  .status-mode {
+    font-size: 2.4rem;
+    font-weight: bold;
+    letter-spacing: 3px;
+    transition: color 0.3s ease;
+  }
+
+  .status-mode.server {
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green);
+  }
+
+  .status-mode.normal {
+    color: var(--amber);
+    text-shadow: 0 0 20px var(--amber);
+  }
+
+  .status-active {
+    font-size: 0.85rem;
+    margin-top: 8px;
+    letter-spacing: 6px;
+    opacity: 0.7;
+  }
+
+  /* The Big Switch */
+  .switch-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 28px;
+  }
+
+  .switch-frame {
+    width: 180px;
+    height: 80px;
+    background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+    border-radius: 6px;
+    border: 2px solid #333;
+    box-shadow:
+      inset 0 2px 4px rgba(0,0,0,0.8),
+      0 4px 8px rgba(0,0,0,0.5);
+    display: flex;
+    padding: 6px;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .switch-frame:hover {
+    box-shadow:
+      inset 0 2px 4px rgba(0,0,0,0.8),
+      0 6px 12px rgba(0,0,0,0.6);
+  }
+
+  .switch-track {
+    flex: 1;
+    display: flex;
+    position: relative;
+  }
+
+  .switch-paddle {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(180deg, #444 0%, #222 50%, #111 100%);
+    border-radius: 3px;
+    border: 1px solid #555;
+    box-shadow:
+      0 2px 4px rgba(0,0,0,0.6),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+    z-index: 2;
+  }
+
+  .switch-paddle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%;
+    height: 40%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+    border-radius: 2px;
+  }
+
+  .switch-paddle.normal {
+    transform: translateX(0%);
+  }
+
+  .switch-paddle.server {
+    transform: translateX(100%);
+  }
+
+  .switch-labels {
+    display: flex;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .switch-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    color: var(--dim);
+    transition: color 0.3s ease;
+  }
+
+  .switch-label.active {
+    font-weight: bold;
+  }
+
+  .switch-label.normal.active {
+    color: var(--amber);
+  }
+
+  .switch-label.server.active {
+    color: var(--green);
+  }
+
+  .switch-caption {
+    display: flex;
+    justify-content: space-between;
+    width: 180px;
+    margin-top: 8px;
+    font-size: 0.7rem;
+    color: var(--dim);
+  }
+
+  .switch-caption span:first-child { text-align: left; }
+  .switch-caption span:last-child { text-align: right; }
+
+  /* Uptime */
+  .uptime {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--dim);
+    margin-bottom: 24px;
+    letter-spacing: 1px;
+  }
+
+  .uptime-value {
+    color: var(--text);
+    font-weight: bold;
+  }
+
+  /* Terminal log */
+  .terminal {
+    background: #050505;
+    border: 1px solid #1a1a1a;
+    border-radius: 2px;
+    padding: 12px;
+    min-height: 100px;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    overflow-y: auto;
+    max-height: 140px;
+  }
+
+  .terminal-line {
+    display: block;
+    color: var(--dim);
+    margin-bottom: 2px;
+    opacity: 0;
+    animation: fadeIn 0.3s ease forwards;
+  }
+
+  .terminal-line.server { color: var(--green-dim); }
+  .terminal-line.normal { color: var(--amber-dim); }
+  .terminal-line.error { color: var(--red); }
+  .terminal-line.info { color: #5599cc; }
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+
+  /* Applying overlay */
+  .applying-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .applying-overlay.active {
+    display: flex;
+  }
+
+  .applying-text {
+    color: var(--green);
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+    animation: pulse 0.8s ease infinite alternate;
+  }
+
+  @keyframes pulse {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+  }
+
+  /* Flicker animation for status text */
+  @keyframes flicker {
+    0% { opacity: 1; }
+    5% { opacity: 0.3; }
+    10% { opacity: 1; }
+    15% { opacity: 0.5; }
+    20% { opacity: 1; }
+    100% { opacity: 1; }
+  }
+
+  .flicker {
+    animation: flicker 0.4s ease;
+  }
+
+  /* Glow pulse on mode change */
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 10px currentColor; }
+    50% { box-shadow: 0 0 40px currentColor; }
+    100% { box-shadow: 0 0 10px currentColor; }
+  }
+
+  .glow-pulse {
+    animation: glowPulse 0.6s ease;
+  }
+
+  /* Scrollbar for terminal */
+  .terminal::-webkit-scrollbar {
+    width: 4px;
+  }
+  .terminal::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  .terminal::-webkit-scrollbar-thumb {
+    background: #333;
+  }
+
+  /* Server not running banner */
+  .offline-banner {
+    display: none;
+    background: rgba(255, 50, 50, 0.1);
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 12px;
+    text-align: center;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    border-radius: 2px;
+  }
+
+  .offline-banner.visible {
+    display: block;
+  }
+
+  /* Responsive */
+  @media (max-width: 400px) {
+    .status-mode { font-size: 1.8rem; }
+    .switch-frame { width: 160px; height: 70px; }
+    .switch-caption { width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="panel normal-active" id="mainPanel">
+
+    <div class="header">
+      <div class="header-title">BITSERVER CONTROL</div>
+      <div class="header-info">
+        <div id="clock">00:00:00</div>
+        <div id="hostname">HOST</div>
+      </div>
+    </div>
+
+    <div class="offline-banner" id="offlineBanner">
+      SERVER NOT RUNNING — Launch run.bat as Administrator first
+    </div>
+
+    <div class="status-display" id="statusDisplay">
+      <div class="applying-overlay" id="applyingOverlay">
+        <div class="applying-text">APPLYING...</div>
+      </div>
+      <div class="status-label">CURRENT MODE</div>
+      <div class="status-mode normal" id="statusMode">NORMAL</div>
+      <div class="status-active" id="statusActive">INACTIVE</div>
+    </div>
+
+    <div class="switch-container">
+      <div class="switch-frame" id="bigSwitch" role="button" tabindex="0" aria-label="Toggle mode">
+        <div class="switch-track">
+          <div class="switch-paddle normal" id="switchPaddle"></div>
+          <div class="switch-labels">
+            <div class="switch-label normal active" id="labelNormal">NORMAL</div>
+            <div class="switch-label server" id="labelServer">SERVER</div>
+          </div>
+        </div>
+      </div>
+      <div class="switch-caption">
+        <span>← NORMAL</span>
+        <span>SERVER →</span>
+      </div>
+    </div>
+
+    <div class="uptime">
+      ACTIVE SINCE: <span class="uptime-value" id="uptimeValue">--:--:--</span>
+    </div>
+
+    <div class="terminal" id="terminal">
+      <span class="terminal-line info">> System initialized. Awaiting command...</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const API_BASE = 'http://localhost:3131';
+  let currentMode = 'normal';
+  let activeSince = new Date();
+  let uptimeInterval = null;
+  let audioCtx = null;
+
+  // DOM refs
+  const mainPanel = document.getElementById('mainPanel');
+  const statusMode = document.getElementById('statusMode');
+  const statusActive = document.getElementById('statusActive');
+  const switchPaddle = document.getElementById('switchPaddle');
+  const labelNormal = document.getElementById('labelNormal');
+  const labelServer = document.getElementById('labelServer');
+  const bigSwitch = document.getElementById('bigSwitch');
+  const terminal = document.getElementById('terminal');
+  const applyingOverlay = document.getElementById('applyingOverlay');
+  const uptimeValue = document.getElementById('uptimeValue');
+  const offlineBanner = document.getElementById('offlineBanner');
+  const clockEl = document.getElementById('clock');
+  const hostnameEl = document.getElementById('hostname');
+
+  // Hostname
+  hostnameEl.textContent = (navigator.userAgent.match(/Windows/) ? 'WIN11' : 'HOST');
+
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('es-ES', { hour12: false });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Audio context init
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+
+  // Procedural click sound
+  function playClickSound(mode) {
+    initAudio();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (mode === 'server') {
+      // High click + rising tone
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(800, t);
+      osc.frequency.exponentialRampToValueAtTime(1200, t + 0.08);
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.start(t);
+      osc.stop(t + 0.12);
+
+      // Second harmonic for richness
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1600, t);
+      osc2.frequency.exponentialRampToValueAtTime(2400, t + 0.08);
+      gain2.gain.setValueAtTime(0.04, t);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc2.start(t);
+      osc2.stop(t + 0.1);
+    } else {
+      // Lower click + descending tone
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(600, t);
+      osc.frequency.exponentialRampToValueAtTime(300, t + 0.1);
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      osc.start(t);
+      osc.stop(t + 0.15);
+
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1200, t);
+      osc2.frequency.exponentialRampToValueAtTime(600, t + 0.1);
+      gain2.gain.setValueAtTime(0.04, t);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc2.start(t);
+      osc2.stop(t + 0.12);
+    }
+  }
+
+  // Terminal log
+  function log(message, type = 'info') {
+    const line = document.createElement('span');
+    line.className = `terminal-line ${type}`;
+    const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
+    line.textContent = `> [${time}] ${message}`;
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+
+    // Keep max 20 lines
+    while (terminal.children.length > 20) {
+      terminal.removeChild(terminal.firstChild);
+    }
+  }
+
+  // Uptime counter
+  function startUptime() {
+    if (uptimeInterval) clearInterval(uptimeInterval);
+    uptimeInterval = setInterval(() => {
+      const now = new Date();
+      const diff = Math.floor((now - activeSince) / 1000);
+      const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+      const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+      const s = String(diff % 60).padStart(2, '0');
+      uptimeValue.textContent = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+
+  // Update UI for mode
+  function setUI(mode, since) {
+    currentMode = mode;
+    activeSince = new Date(since);
+
+    if (mode === 'server') {
+      mainPanel.classList.remove('normal-active');
+      mainPanel.classList.add('server-active');
+      statusMode.textContent = 'SERVER';
+      statusMode.classList.remove('normal');
+      statusMode.classList.add('server');
+      statusActive.textContent = 'ACTIVE';
+      switchPaddle.classList.remove('normal');
+      switchPaddle.classList.add('server');
+      labelNormal.classList.remove('active');
+      labelServer.classList.add('active');
+    } else {
+      mainPanel.classList.remove('server-active');
+      mainPanel.classList.add('normal-active');
+      statusMode.textContent = 'NORMAL';
+      statusMode.classList.remove('server');
+      statusMode.classList.add('normal');
+      statusActive.textContent = 'INACTIVE';
+      switchPaddle.classList.remove('server');
+      switchPaddle.classList.add('normal');
+      labelServer.classList.remove('active');
+      labelNormal.classList.add('active');
+    }
+
+    startUptime();
+  }
+
+  // Fetch state on load
+  async function loadState() {
+    try {
+      const res = await fetch(`${API_BASE}/state`, { method: 'GET' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      setUI(data.mode, data.since);
+      log(`Loaded state: ${data.mode.toUpperCase()} MODE`, data.mode);
+      offlineBanner.classList.remove('visible');
+    } catch (err) {
+      offlineBanner.classList.add('visible');
+      log('ERROR: Cannot connect to BITSERVER. Run run.bat first.', 'error');
+      // Default UI
+      setUI('normal', new Date().toISOString());
+    }
+  }
+
+  // Toggle mode
+  async function toggleMode() {
+    initAudio();
+    const targetMode = currentMode === 'normal' ? 'server' : 'normal';
+    const endpoint = targetMode === 'server' ? '/server-mode' : '/normal-mode';
+
+    applyingOverlay.classList.add('active');
+    log(`Applying ${targetMode.toUpperCase()} MODE...`, 'info');
+
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+
+      applyingOverlay.classList.remove('active');
+
+      if (data.success) {
+        playClickSound(targetMode);
+        setUI(data.mode, new Date().toISOString());
+        log(`${data.mode.toUpperCase()} MODE activated successfully`, data.mode);
+
+        if (data.mode === 'server') {
+          log('System: no sleep, no hibernate', 'server');
+          log('Monitor timeout: disabled', 'server');
+        } else {
+          log('System: normal power settings restored', 'normal');
+          log('Monitor timeout: 15min AC / 10min DC', 'normal');
+        }
+
+        // Flicker effect
+        statusMode.classList.add('flicker');
+        setTimeout(() => statusMode.classList.remove('flicker'), 400);
+      } else {
+        log(`FAILED: ${data.error}`, 'error');
+      }
+    } catch (err) {
+      applyingOverlay.classList.remove('active');
+      offlineBanner.classList.add('visible');
+      log('CONNECTION ERROR: Server may be offline', 'error');
+    }
+  }
+
+  bigSwitch.addEventListener('click', toggleMode);
+  bigSwitch.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleMode();
+    }
+  });
+
+  // Init
+  loadState();
+</script>
+
+</body>
+</html>

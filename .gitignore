@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Runtime state
+state.json
+package-lock.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*

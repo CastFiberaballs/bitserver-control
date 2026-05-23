@@ -1,0 +1,32 @@
+{
+  "name": "bitserver-control",
+  "version": "1.0.0",
+  "description": "Toggle Windows 11 power settings between Normal and Server mode from a beautiful web UI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "windows",
+    "powercfg",
+    "server-mode",
+    "power-management",
+    "windows-tool"
+  ],
+  "author": "Tobias",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TboyDev/bitserver-control"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "win32"
+  ],
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}
