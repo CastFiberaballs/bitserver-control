@@ -120,6 +120,11 @@ function runCommands(commands) {
   }
 }
 
+// GET / — serve main app
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'app.html'));
+});
+
 // GET /state — returns current mode
 app.get('/state', (req, res) => {
   res.json(getState());

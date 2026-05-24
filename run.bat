@@ -65,7 +65,7 @@ echo  [LAUNCH] Starting Node server...
 echo.
 start /b node server.js
 timeout /t 2 /nobreak >nul
-start http://localhost:3131
+start http://localhost:3131/app.html
 if %errorlevel% neq 0 (
   echo.
   echo  [ERROR] Server crashed or failed to start.
